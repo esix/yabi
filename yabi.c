@@ -11,19 +11,28 @@
 #define OUT_OF_MEMORY "Out of memory!"
 #define ERROR_NO_CLOSING_BRACKET 222
 
-static unsigned char data_highway[DATA_SIZE];
-static unsigned char *p;
-static unsigned char *g_program;
+
+/* program char */
+typedef char pchar_t;
+
+/* memory */
+typedef unsigned char mchar_t;
+
+
+static mchar_t data_highway[DATA_SIZE];
+static mchar_t *p;
+
+static pchar_t *g_program;
 
 int
 getch(void);
 
 
-static unsigned char *
+static pchar_t *
 read_program (FILE *, size_t *);
 
 int
-do_program (unsigned char const *, size_t);
+do_program (pchar_t const *, size_t);
 
 
 int
@@ -40,49 +49,55 @@ getch(void)
   return ch;
 }
 
-static unsigned char *
+static pchar_t *
 read_program (FILE *input, size_t *out_program_size)
 {
-  unsigned char *program;
-  size_t buffer_size;
-  size_t program_size;
+  pchar_t *program;
+  size_t buffer_size;           /* number of program-characters in allocated buffer */
+  size_t program_size;          /* number of program-characters in program          */
   size_t n;
 
   buffer_size = BUFSIZ;
   program_size = 0;
 
-  program = malloc (buffer_size);
+  program = malloc (buffer_size * sizeof (pchar_t));
   if (!program)
     {
       fprintf (stderr, OUT_OF_MEMORY);
       return NULL;
     }
 
-  while ((n = fread (program + program_size, 1, BUFSIZ, input)) > 0)
+  do
     {
-      program_size += n;
+      /* ensure buffer is large enough to read BUFSIZ program-characters */
       if (program_size + BUFSIZ > buffer_size)
         {
           buffer_size *= 2;
-          program = realloc (program, buffer_size);
+          program = realloc (program, buffer_size * sizeof (pchar_t));
           if (!program)
             {
               fprintf (stderr, OUT_OF_MEMORY);
               return NULL;
             }
         }
-    }
 
-  *out_program_size = program_size;
+      n = fread (program + program_size, sizeof (pchar_t), BUFSIZ, input);
+      program_size += n;
+    }
+  while(n == BUFSIZ);
+
+  if (out_program_size != NULL)
+    *out_program_size = program_size;
+
   return program;
 }
 
 
 int
-do_program (unsigned char const *program, size_t program_len)
+do_program (pchar_t const *program, size_t program_len)
 {
-  unsigned char const *prg;
-  unsigned char const *prg_end;
+  pchar_t const *prg;
+  pchar_t const *prg_end;
 
   prg = program;
   prg_end = program + program_len;
@@ -118,7 +133,7 @@ do_program (unsigned char const *program, size_t program_len)
 
         case '[':
           {
-            unsigned char const * closing_bracket = prg;
+            pchar_t const * closing_bracket = prg;
             int num_brackets = 0;
 
             do
@@ -139,7 +154,7 @@ do_program (unsigned char const *program, size_t program_len)
               {
                 int result = do_program (prg + 1, closing_bracket - prg);
                 if (result != 0)
-		  return result;
+                  return result;
               }
             prg = closing_bracket;
           }
@@ -178,6 +193,8 @@ main(int argc, char **argv)
   g_program = read_program (input, &program_size);
   if (!g_program)
     return ENOMEM;
+  
+  printf("OKAY, Program is being read ok [%d]\n", program_size);
 
   p = &data_highway[0];
 
