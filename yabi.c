@@ -20,7 +20,7 @@ typedef unsigned char mchar_t;
 
 
 static mchar_t data_highway[DATA_SIZE];
-static mchar_t *p;
+static mchar_t *mem;
 
 static pchar_t *g_program;
 
@@ -32,7 +32,11 @@ static pchar_t *
 read_program (FILE *, size_t *);
 
 int
-do_program (pchar_t const *, size_t);
+do_program (pchar_t const *, pchar_t const *);
+
+pchar_t const *
+next_op(pchar_t const *start, pchar_t const *end);
+
 
 
 int
@@ -93,70 +97,78 @@ read_program (FILE *input, size_t *out_program_size)
 }
 
 
-int
-do_program (pchar_t const *program, size_t program_len)
+pchar_t const *
+next_op(pchar_t const *start, pchar_t const *end)
 {
-  pchar_t const *prg;
-  pchar_t const *prg_end;
+  int num_brackets = 0;
+  pchar_t const *p = start;
 
-  prg = program;
-  prg_end = program + program_len;
+  do
+    {
+      if (*p == '[')
+        ++num_brackets;
+      else if (*p == ']')
+        --num_brackets;
 
-  while (prg < prg_end)
+      ++p;
+    }
+  while (p < end && num_brackets);
+
+  if (p == end && num_brackets)
+    return NULL;
+  else
+    return p;
+}
+
+
+int
+do_program (pchar_t const *start, pchar_t const *end)
+{
+  pchar_t const *prg = start;
+
+  while (prg < end)
     {
       switch(*prg)
         {
         case '>':
-          ++p;
+          ++mem;
           break;
 
         case '<':
-          --p;
+          --mem;
           break;
 
         case '+':
-          ++*p;
+          ++*mem;
           break;
 
         case '-':
-          --*p;
+          --*mem;
           break;
 
         case '.':
-          putchar(*p);
+          putchar(*mem);
           break;
 
         case ',':
           /* *p = getchar(); */
-          *p = getch();
+          *mem = getch();
           break;
 
         case '[':
           {
-            pchar_t const * closing_bracket = prg;
-            int num_brackets = 0;
-
-            do
-              {
-                if (*closing_bracket == '[')
-                  ++num_brackets;
-                else if (*closing_bracket == ']')
-                  --num_brackets;
-
-                 ++closing_bracket;
-               }
-            while (closing_bracket < prg_end && num_brackets > 0);
-
-            if (closing_bracket == prg_end)
+            pchar_t const * block_end = next_op(prg, end);
+            
+            if (block_end == NULL)
               return ERROR_NO_CLOSING_BRACKET;
 
-            while (*p == 0)
+            while (*mem)
               {
-                int result = do_program (prg + 1, closing_bracket - prg);
+                int result = do_program (prg + 1, block_end - 1);
                 if (result != 0)
                   return result;
               }
-            prg = closing_bracket;
+            prg = block_end - 1;
           }
           break;
       }
@@ -194,11 +206,9 @@ main(int argc, char **argv)
   if (!g_program)
     return ENOMEM;
   
-  printf("OKAY, Program is being read ok [%d]\n", program_size);
+  mem = &data_highway[0];
 
-  p = &data_highway[0];
-
-  do_program (g_program, program_size);
+  do_program (g_program, g_program + program_size);
 
   return 0;
 }
