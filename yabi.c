@@ -27,7 +27,6 @@ static pchar_t *g_program;
 int
 getch(void);
 
-
 static pchar_t *
 read_program (FILE *, size_t *);
 
@@ -38,20 +37,12 @@ pchar_t const *
 next_op(pchar_t const *start, pchar_t const *end);
 
 
-
 int
 getch(void)
 {
-  struct termios oldt, newt;
-  int ch;
-  tcgetattr( STDIN_FILENO, &oldt );
-  newt = oldt;
-  newt.c_lflag &= ~( ICANON | ECHO );
-  tcsetattr( STDIN_FILENO, TCSANOW, &newt );
-  ch = getchar();
-  tcsetattr( STDIN_FILENO, TCSANOW, &oldt );
-  return ch;
+  return getchar();
 }
+
 
 static pchar_t *
 read_program (FILE *input, size_t *out_program_size)
@@ -205,6 +196,11 @@ main(int argc, char **argv)
   g_program = read_program (input, &program_size);
   if (!g_program)
     return ENOMEM;
+
+  struct termios options;
+  tcgetattr (STDIN_FILENO, &options);
+  options.c_lflag &= ~( ICANON | ECHO );
+  tcsetattr (STDIN_FILENO, TCSANOW, &options);
   
   mem = &data_highway[0];
 
