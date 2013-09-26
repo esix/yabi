@@ -3,8 +3,34 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <termios.h>
-#include <unistd.h>
+
+#ifdef WIN32
+# include <conio.h>
+#else
+# include <termios.h>
+# include <unistd.h>
+
+int
+getch(void);
+
+int
+getch(void)
+{
+ struct termios oldt, newt;
+ int ch;
+ tcgetattr( STDIN_FILENO, &oldt );
+ newt = oldt;
+ newt.c_lflag &= ~( ICANON | ECHO );
+ tcsetattr( STDIN_FILENO, TCSANOW, &newt );
+ ch = getchar();
+ tcsetattr( STDIN_FILENO, TCSANOW, &oldt );
+ return ch;
+ }
+
+#endif
+
+
+
 
 #define DATA_SIZE 30000
 
@@ -24,8 +50,6 @@ static mchar_t *mem;
 
 static pchar_t *g_program;
 
-int
-getch(void);
 
 static pchar_t *
 read_program (FILE *, size_t *);
@@ -35,13 +59,6 @@ do_program (pchar_t const *, pchar_t const *);
 
 pchar_t const *
 next_op(pchar_t const *start, pchar_t const *end);
-
-
-int
-getch(void)
-{
-  return getchar();
-}
 
 
 static pchar_t *
@@ -197,11 +214,6 @@ main(int argc, char **argv)
   if (!g_program)
     return ENOMEM;
 
-  struct termios options;
-  tcgetattr (STDIN_FILENO, &options);
-  options.c_lflag &= ~( ICANON | ECHO );
-  tcsetattr (STDIN_FILENO, TCSANOW, &options);
-  
   mem = &data_highway[0];
 
   do_program (g_program, g_program + program_size);
